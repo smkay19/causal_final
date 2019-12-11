@@ -1,0 +1,82 @@
+---
+title: "Kay_Shannon_APSTA_2012_Final_Project"
+author: "Shannon Kay"
+date: "12/9/2019"
+output: html_document
+---
+
+How do post-treatment variables affect estimates of treatment effects? 
+
+Step 1: Construct our data
+
+Imagine ______ are randomly assigned to be encouraged to _____. 
+
+```{r}
+
+compliance_type <- rep(c("c","n", "a"), c(450, 325, 225))
+
+d_0 <- rep(c(0,0,1), c(450, 325, 225))
+d_1 <- rep(c(1,0,1), c(450, 325, 225))
+
+dat<- data.frame(d_0, d_1, compliance_type)
+
+
+```
+
+Determine what baseline levels are appropriate for each group, then add treatment effect, & create both possible observed outcomes 
+
+(c) Simulate the potential outcomes in a way that meets the following criteria:
+  (i) The exclusion restriction is satisfied.
+  (ii) The average effect of Z on Y for the compliers is 4.
+  (iii) The average Y(Z=0) for never takers is 0; The average Y(0) for compliers is 3; The average Y(Z=0) for always takers is 6.
+  (iii) The residual standard deviation is 1 for everyone in the sample (generated independently for each potential outcome).
+  
+```{r}
+
+comp_Y0 <- rnorm(250, 3, 1)
+nev.taker_Y0 <- rnorm(600,0,1)
+always_Y0 <- rnorm(150,6,1)
+
+dat$Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
+
+comp_Y1 <- rnorm(250,7,1)
+nev.taker_Y1 <- rnorm(600,0,1)
+always_Y1 <- rnorm(150,6,1)
+
+dat$Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
+  
+```
+
+test correlations of additional covariate
+```{r}
+
+x <- rnorm(100,5,1)
+
+y <- 3 + (2*x)
+
+y2 <- 3*x^2
+
+y3 <- .5*x^3
+
+y4 <- rnorm(100,3,1) + x
+
+cov(x,y)
+
+cov(x,y2)
+
+cov(x,y4)
+
+
+```
+
+## Question 2. Playing the role of the researcher to randomly assign treatments to observations.
+Now switch to the role of the researcher. Pretend that you are running the experiment that we are examining for this assignment.  Generate a binary indicator for the ignorable treatment *assignment* (as distinct from treatment receipt.... so this is $Z$, not $D$).  Probability of being assigned to the treatment condition should be .5.
+
+```{r}
+
+dat.full$Z <- rbinom(1000, size = 1, prob = .5)
+
+```
+
+
+
