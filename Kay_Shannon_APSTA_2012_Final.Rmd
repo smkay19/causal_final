@@ -9,17 +9,16 @@ output: html_document
 ##load required packages
 library(tidyverse)
 
-
 ```
-
 
 How do post-treatment variables affect estimates of treatment effects? 
 
 Step 1: Construct our data
 
-Imagine a group of 1000 incoming NYU freshmen are randomly encouraged to attend an optional, weekly lab to supplement their statistics class. Approximately half of the students enrolled in Stats 101 receive the information regarding when and where the lab meets. Students who do not receive the information may attend, but would have to discover the
+Imagine a group of 1000 NYU students are randomly encouraged to attend an optional, weekly lab to supplement their statistics class. Approximately half of the students enrolled in Stats 101 receive the information regarding when and where the lab meets. Students who do not receive the information may attend, but would have to discover the
 
 ```{r}
+set.seed(2012)
 
 compliance_type <- rep(c("c","n", "a"), c(450, 325, 225))
 
@@ -28,14 +27,13 @@ d_1 <- rep(c(1,0,1), c(450, 325, 225))
 
 dat<- data.frame(d_0, d_1, compliance_type)
 
-
 ```
 
 Determine what baseline levels are appropriate for each group, then add treatment effect, & create both possible observed outcomes 
 
 (c) Simulate the potential outcomes in a way that meets the following criteria:
   (i) The exclusion restriction is satisfied.
-  (ii) The average effect of Z on Y for the compliers is 4.
+  (ii) The average effect of Z on Y for the compliers is 9.
   (iii) The average Y(Z=0) for never takers is 0; The average Y(0) for compliers is 3; The average Y(Z=0) for always takers is 6.
   (iii) The residual standard deviation is 1 for everyone in the sample (generated independently for each potential outcome).
   
@@ -45,13 +43,11 @@ comp_Y0 <- rnorm(450, 80, 3.5)
 nev.taker_Y0 <- rnorm(325,75,7)
 always_Y0 <- rnorm(225,87,3.5)
 
-hist(always_Y0)
-range(always_Y0)
-
 dat$Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
 hist(dat$Y0)
+range(dat$Y0)
 
-comp_Y1 <- rnorm(450,90,3.5)
+comp_Y1 <- rnorm(450,89,3.5)
 nev.taker_Y1 <- rnorm(325,75,7)
 always_Y1 <- rnorm(225,87,3.5)
 
@@ -60,6 +56,9 @@ dat$Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
 hist(dat$Y1)
 range(dat$Y1)
 
+dat$age <- rnorm(1000,20,.5)
+
+dat$gender <- rbinom(1000, size = 1, prob = .5)
 
 ##checking sate for compliers
 sate_compliers <- mean(comp_Y1) - mean(comp_Y0)
@@ -96,25 +95,14 @@ dat.full$attend1_X1 <- c(comp_attend1_X1, nev.taker_attend1_X1, always_attend1_X
 
 ```
 
-
-
-```{r}
-
-#cor(dat.obs$Z, dat.obs$Attend_2)
-
-##violates compliers.....
-#dat.obs$Attend_2 <- rbinom(1000, size = 1, prob = .5)
-
-
-
-
-```
-
 Varying levels of dosage
+Compliers attend at least one of the supplemental lab but percentage of attendance varies randomly from 1-10 with a higher probability of 5 or more.
+Always-takers attend all 10, never-takers attend 0. 
 
 ```{r}
 
 attendance <- c(1:10)
+probs <- c(.05,.05,.05,.1,.125,.125,.125,.125,.125,.125)
 
 comp_attend2_X0 <- rep(0,450)
 nev.taker_attend2_X0 <- rep(0,325)
@@ -122,13 +110,30 @@ always_attend2_X0 <- rep(1,225)
 
 dat.full$attend2_X0 <- c(comp_attend2_X0, nev.taker_attend2_X0, always_attend2_X0)
 
-comp_attend2_X1 <- sample(attendance,450, replace = TRUE)
+comp_attend2_X1 <- (sample(attendance,450, replace = TRUE, prob = probs)/10)
 nev.taker_attend2_X1 <- rep(0,325)
 always_attend2_X1 <- rep(1,225)
 
 dat.full$attend2_X1 <- c(comp_attend2_X1, nev.taker_attend2_X1, always_attend2_X1)
 
+```
 
+Varying levels of dosage
+Compliers attend at least one of the supplemental lab but percentage of attendance varies randomly between 1-10. 
+Always-takers attend all 10, never-takers attend 0. 
+```{r}
+
+comp_attend3_X0 <- rep(0,450)
+nev.taker_attend3_X0 <- rep(0,325)
+always_attend3_X0 <- rep(1,225)
+
+dat.full$attend3_X0 <- c(comp_attend3_X0, nev.taker_attend3_X0, always_attend3_X0)
+
+comp_attend3_X1 <- (sample(attendance,450, replace = TRUE)/10)
+nev.taker_attend3_X1 <- rep(0,325)
+always_attend3_X1 <- rep(1,225)
+
+dat.full$attend3_X1 <- c(comp_attend3_X1, nev.taker_attend3_X1, always_attend3_X1)
 
 ```
 
@@ -138,22 +143,74 @@ dat.full$attend2_X1 <- c(comp_attend2_X1, nev.taker_attend2_X1, always_attend2_X
 ```{r}
 
 Y_obs <- ifelse(dat.full$Z== 1, dat.full$Y1, dat.full$Y0)
-
 D_obs <- ifelse(dat.full$Z== 1, dat.full$d_1, dat.full$d_0)
 
 attend1_obs <- ifelse(dat.full$Z== 1, dat.full$attend1_X1, dat.full$attend1_X0)
-
 attend2_obs <- ifelse(dat.full$Z == 1, dat.full$attend2_X1, dat.full$attend2_X0)
+attend3_obs <- ifelse(dat.full$Z == 1, dat.full$attend3_X1, dat.full$attend3_X0)
 
-dat.obs <- data.frame(dat.full$Z, D_obs, Y_obs, attend1_obs, attend2_obs, compliance_type)
+##pull alll observed variables into the observed data frame
+dat.obs <- data.frame(dat.full$Z, compliance_type, D_obs, Y_obs, dat.full$gender, dat.full$age, attend1_obs, attend2_obs, attend3_obs)
 
-colnames(dat.obs) <- c("Z", "D", "Y", "Attend_1", "Attend_2", "compliance")
+##rename columns
+colnames(dat.obs) <- c("Z", "Compliance", "D", "Y", "Gender", "Age", "Attend_1", "Attend_2", "Attend_3")
 
-kruskal.test(attend1_obs ~ compliance, data = dat.obs)
-kruskal.test(attend2_obs ~ compliance, data = dat.obs)
+##looking at correlation to compliance & to treatment
+kruskal.test(attend1_obs ~ Compliance, data = dat.obs)
+kruskal.test(attend2_obs ~ Compliance, data = dat.obs)
+kruskal.test(attend3_obs ~ Compliance, data = dat.obs)
 
-hist(dat.obs$Y)
+cor(dat.obs$Y, dat.obs$Attend_1)
+cor(dat.obs$Y, dat.obs$Attend_2)
+cor(dat.obs$Y, dat.obs$Attend_3)
 
 ```
+
+
+```{r}
+
+naive_regression <- lm(Y ~ D, data = dat.obs)
+summary(naive_regression)
+
+naive_regression_w.predictors <- lm(Y ~ D + Age + as.factor(Gender), data = dat.obs)
+summary(naive_regression_w.predictors)
+
+naive_regression_w.attend_1 <- lm(Y ~ D + Age + as.factor(Gender) + as.factor(Attend_1), data = dat.obs)
+summary(naive_regression_w.attend_1)
+
+##In dat.obs, 14.84% are always-takers, 25.32% are compliers, and 59.84% are never-takers.-- check with slides
+
+compliance_regression <- lm(D ~ Z, data = dat.obs)
+
+summary(compliance_regression)
+
+1-(compliance_regression$coefficients[1]+compliance_regression$coefficients[2])
+
+```
+
+
+Intent to Treat Effect
+
+```{r}
+
+ITT <- mean(dat.obs$Y[dat.obs$Z == 1]) - mean(dat.obs$Y[dat.obs$Z ==0])
+ITT
+
+## Estimate the CACE by dividing the ITT estimate by the percent of compliers in the sample.
+
+CACE <- ITT/compliance_regression$coefficients[2]
+CACE
+
+```
+
+
+
+```{r}
+
+
+
+
+```
+
 
 
