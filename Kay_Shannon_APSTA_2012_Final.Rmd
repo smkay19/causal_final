@@ -5,11 +5,19 @@ date: "12/9/2019"
 output: html_document
 ---
 
+```{r}
+##load required packages
+library(tidyverse)
+
+
+```
+
+
 How do post-treatment variables affect estimates of treatment effects? 
 
 Step 1: Construct our data
 
-Imagine ______ are randomly assigned to be encouraged to _____. 
+Imagine a group of 1000 incoming NYU freshmen are randomly encouraged to attend an optional, weekly lab to supplement their statistics class. Approximately half of the students enrolled in Stats 101 receive the information regarding when and where the lab meets. Students who do not receive the information may attend, but would have to discover the
 
 ```{r}
 
@@ -33,50 +41,119 @@ Determine what baseline levels are appropriate for each group, then add treatmen
   
 ```{r}
 
-comp_Y0 <- rnorm(250, 3, 1)
-nev.taker_Y0 <- rnorm(600,0,1)
-always_Y0 <- rnorm(150,6,1)
+comp_Y0 <- rnorm(450, 80, 3.5)
+nev.taker_Y0 <- rnorm(325,75,7)
+always_Y0 <- rnorm(225,87,3.5)
+
+hist(always_Y0)
+range(always_Y0)
 
 dat$Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
+hist(dat$Y0)
 
-comp_Y1 <- rnorm(250,7,1)
-nev.taker_Y1 <- rnorm(600,0,1)
-always_Y1 <- rnorm(150,6,1)
+comp_Y1 <- rnorm(450,90,3.5)
+nev.taker_Y1 <- rnorm(325,75,7)
+always_Y1 <- rnorm(225,87,3.5)
 
 dat$Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
-  
+
+hist(dat$Y1)
+range(dat$Y1)
+
+
+##checking sate for compliers
+sate_compliers <- mean(comp_Y1) - mean(comp_Y0)
 ```
 
-test correlations of additional covariate
-```{r}
-
-x <- rnorm(100,5,1)
-
-y <- 3 + (2*x)
-
-y2 <- 3*x^2
-
-y3 <- .5*x^3
-
-y4 <- rnorm(100,3,1) + x
-
-cov(x,y)
-
-cov(x,y2)
-
-cov(x,y4)
-
-
-```
 
 ## Question 2. Playing the role of the researcher to randomly assign treatments to observations.
 Now switch to the role of the researcher. Pretend that you are running the experiment that we are examining for this assignment.  Generate a binary indicator for the ignorable treatment *assignment* (as distinct from treatment receipt.... so this is $Z$, not $D$).  Probability of being assigned to the treatment condition should be .5.
 
 ```{r}
 
+dat.full <- dat
+
 dat.full$Z <- rbinom(1000, size = 1, prob = .5)
 
 ```
 
+
+##Create dosage variables
+
+```{r}
+
+comp_attend1_X0 <- rep(0,450)
+nev.taker_attend1_X0 <- rep(0,325)
+always_attend1_X0 <- rep(1,225)
+
+dat.full$attend1_X0 <- c(comp_attend1_X0, nev.taker_attend1_X0, always_attend1_X0)
+
+comp_attend1_X1 <- rep(1,450)
+nev.taker_attend1_X1 <- rep(0,325)
+always_attend1_X1 <- rep(1,225)
+
+dat.full$attend1_X1 <- c(comp_attend1_X1, nev.taker_attend1_X1, always_attend1_X1)
+
+```
+
+
+
+```{r}
+
+#cor(dat.obs$Z, dat.obs$Attend_2)
+
+##violates compliers.....
+#dat.obs$Attend_2 <- rbinom(1000, size = 1, prob = .5)
+
+
+
+
+```
+
+Varying levels of dosage
+
+```{r}
+
+attendance <- c(1:10)
+
+comp_attend2_X0 <- rep(0,450)
+nev.taker_attend2_X0 <- rep(0,325)
+always_attend2_X0 <- rep(1,225)
+
+dat.full$attend2_X0 <- c(comp_attend2_X0, nev.taker_attend2_X0, always_attend2_X0)
+
+comp_attend2_X1 <- sample(attendance,450, replace = TRUE)
+nev.taker_attend2_X1 <- rep(0,325)
+always_attend2_X1 <- rep(1,225)
+
+dat.full$attend2_X1 <- c(comp_attend2_X1, nev.taker_attend2_X1, always_attend2_X1)
+
+
+
+```
+
+
+##Create observed data
+
+```{r}
+
+Y_obs <- ifelse(dat.full$Z== 1, dat.full$Y1, dat.full$Y0)
+
+D_obs <- ifelse(dat.full$Z== 1, dat.full$d_1, dat.full$d_0)
+
+attend1_obs <- ifelse(dat.full$Z== 1, dat.full$attend1_X1, dat.full$attend1_X0)
+
+attend2_obs <- ifelse(dat.full$Z == 1, dat.full$attend2_X1, dat.full$attend2_X0)
+
+dat.obs <- data.frame(dat.full$Z, D_obs, Y_obs, attend1_obs, attend2_obs, compliance_type)
+
+colnames(dat.obs) <- c("Z", "D", "Y", "Attend_1", "Attend_2", "compliance")
+
+kruskal.test(attend1_obs ~ compliance, data = dat.obs)
+kruskal.test(attend2_obs ~ compliance, data = dat.obs)
+
+hist(dat.obs$Y)
+
+```
 
 
