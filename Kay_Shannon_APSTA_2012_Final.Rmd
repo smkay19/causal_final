@@ -1,216 +1,191 @@
 ---
-title: "Kay_Shannon_APSTA_2012_Final_Project"
+title: "Kay_Shannon_APSTA_2012_Final"
 author: "Shannon Kay"
-date: "12/9/2019"
+date: "12/14/2019"
 output: html_document
 ---
 
 ```{r}
-##load required packages
-library(tidyverse)
-
-```
-
-How do post-treatment variables affect estimates of treatment effects? 
-
-Step 1: Construct our data
-
-Imagine a group of 1000 NYU students are randomly encouraged to attend an optional, weekly lab to supplement their statistics class. Approximately half of the students enrolled in Stats 101 receive the information regarding when and where the lab meets. Students who do not receive the information may attend, but would have to discover the
-
-```{r}
+start.time = Sys.time()
 set.seed(2012)
 
-compliance_type <- rep(c("c","n", "a"), c(450, 325, 225))
-
-d_0 <- rep(c(0,0,1), c(450, 325, 225))
-d_1 <- rep(c(1,0,1), c(450, 325, 225))
-
-dat<- data.frame(d_0, d_1, compliance_type)
-
-```
-
-Determine what baseline levels are appropriate for each group, then add treatment effect, & create both possible observed outcomes 
-
-(c) Simulate the potential outcomes in a way that meets the following criteria:
-  (i) The exclusion restriction is satisfied.
-  (ii) The average effect of Z on Y for the compliers is 9.
-  (iii) The average Y(Z=0) for never takers is 0; The average Y(0) for compliers is 3; The average Y(Z=0) for always takers is 6.
-  (iii) The residual standard deviation is 1 for everyone in the sample (generated independently for each potential outcome).
+data_function1 <- function(x){
+  c <- rep(c("c", "n", "a"), x*c(.5,.3,.2))
+  d_0 <- rep(c(0,0,1), x*c(.5, .3, .2))
+  d_1 <- rep(c(1,0,1), x*c(.5, .3, .2))
   
-```{r}
+  dat<- data.frame(d_0, d_1, c)
 
-comp_Y0 <- rnorm(450, 80, 3.5)
-nev.taker_Y0 <- rnorm(325,75,7)
-always_Y0 <- rnorm(225,87,3.5)
+  comp_Y0 <- rnorm(x*.5, 80, 3.5)
+  nev.taker_Y0 <- rnorm(x*.3,75,7)
+  always_Y0 <- rnorm(x*.2,87,3.5)
 
-dat$Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
-hist(dat$Y0)
-range(dat$Y0)
+  Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
 
-comp_Y1 <- rnorm(450,89,3.5)
-nev.taker_Y1 <- rnorm(325,75,7)
-always_Y1 <- rnorm(225,87,3.5)
+  comp_Y1 <- rnorm(x*.5,89,3.5)
+  nev.taker_Y1 <- rnorm(x*.3,75,7)
+  always_Y1 <- rnorm(x*.2,87,3.5)
 
-dat$Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
+  Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
+  
+  age <- rnorm(x,20,.5)
+  gender <- rbinom(x, size = 1, prob = .5)
+  
+  comp_attend_Z0 <- rep(0,.5*x)
+  nev.taker_attend <- rep(0,.3*x)
+  always_attend <- rep(1,.2*x)
 
-hist(dat$Y1)
-range(dat$Y1)
+  ##varying attendance for compliers
+  ## % of attendance for compliers skewed lower- students attend once or twice and dwindle off
+  comp_attend1_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = 15)
+  ## % of attendance for compliers  
+  comp_attend2_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = 2)
+  ## % attendance for compliers 
+  comp_attend3_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = .5)
 
-dat$age <- rnorm(1000,20,.5)
+  attend_Z0 <- c(comp_attend_Z0, nev.taker_attend, always_attend)
+  attend1_Z1 <- c(comp_attend1_Z1, nev.taker_attend, always_attend)
+  attend2_Z1 <- c(comp_attend2_Z1, nev.taker_attend, always_attend)
+  attend3_Z1 <- c(comp_attend3_Z1, nev.taker_attend, always_attend)
+  
+  Z <- rbinom(x, size = 1, prob = .5)
 
-dat$gender <- rbinom(1000, size = 1, prob = .5)
+  god.dat <- data.frame(d_0, d_1, c, Y0, Y1, age, gender, attend_Z0, attend1_Z1, attend2_Z1, attend3_Z1, Z)
+  
+  Y_obs <- ifelse(god.dat$Z== 1, god.dat$Y1, god.dat$Y0)
+  D_obs <- ifelse(god.dat$Z == 1, god.dat$d_1, god.dat$d_0)
+  
+  attend1_obs <- ifelse(god.dat$Z== 1, god.dat$attend1_Z1, god.dat$attend_Z0)
+  attend2_obs <- ifelse(god.dat$Z== 1, god.dat$attend2_Z1, god.dat$attend_Z0)
+  attend3_obs <- ifelse(god.dat$Z== 1, god.dat$attend3_Z1, god.dat$attend_Z0)
 
-##checking sate for compliers
-sate_compliers <- mean(comp_Y1) - mean(comp_Y0)
-```
-
-
-## Question 2. Playing the role of the researcher to randomly assign treatments to observations.
-Now switch to the role of the researcher. Pretend that you are running the experiment that we are examining for this assignment.  Generate a binary indicator for the ignorable treatment *assignment* (as distinct from treatment receipt.... so this is $Z$, not $D$).  Probability of being assigned to the treatment condition should be .5.
-
-```{r}
-
-dat.full <- dat
-
-dat.full$Z <- rbinom(1000, size = 1, prob = .5)
-
-```
-
-
-##Create dosage variables
-
-```{r}
-
-comp_attend1_X0 <- rep(0,450)
-nev.taker_attend1_X0 <- rep(0,325)
-always_attend1_X0 <- rep(1,225)
-
-dat.full$attend1_X0 <- c(comp_attend1_X0, nev.taker_attend1_X0, always_attend1_X0)
-
-comp_attend1_X1 <- rep(1,450)
-nev.taker_attend1_X1 <- rep(0,325)
-always_attend1_X1 <- rep(1,225)
-
-dat.full$attend1_X1 <- c(comp_attend1_X1, nev.taker_attend1_X1, always_attend1_X1)
-
-```
-
-Varying levels of dosage
-Compliers attend at least one of the supplemental lab but percentage of attendance varies randomly from 1-10 with a higher probability of 5 or more.
-Always-takers attend all 10, never-takers attend 0. 
-
-```{r}
-
-attendance <- c(1:10)
-probs <- c(.05,.05,.05,.1,.125,.125,.125,.125,.125,.125)
-
-comp_attend2_X0 <- rep(0,450)
-nev.taker_attend2_X0 <- rep(0,325)
-always_attend2_X0 <- rep(1,225)
-
-dat.full$attend2_X0 <- c(comp_attend2_X0, nev.taker_attend2_X0, always_attend2_X0)
-
-comp_attend2_X1 <- (sample(attendance,450, replace = TRUE, prob = probs)/10)
-nev.taker_attend2_X1 <- rep(0,325)
-always_attend2_X1 <- rep(1,225)
-
-dat.full$attend2_X1 <- c(comp_attend2_X1, nev.taker_attend2_X1, always_attend2_X1)
-
-```
-
-Varying levels of dosage
-Compliers attend at least one of the supplemental lab but percentage of attendance varies randomly between 1-10. 
-Always-takers attend all 10, never-takers attend 0. 
-```{r}
-
-comp_attend3_X0 <- rep(0,450)
-nev.taker_attend3_X0 <- rep(0,325)
-always_attend3_X0 <- rep(1,225)
-
-dat.full$attend3_X0 <- c(comp_attend3_X0, nev.taker_attend3_X0, always_attend3_X0)
-
-comp_attend3_X1 <- (sample(attendance,450, replace = TRUE)/10)
-nev.taker_attend3_X1 <- rep(0,325)
-always_attend3_X1 <- rep(1,225)
-
-dat.full$attend3_X1 <- c(comp_attend3_X1, nev.taker_attend3_X1, always_attend3_X1)
-
-```
+  sim.dat.obs <- data.frame(D_obs, god.dat$Z, god.dat$age, god.dat$gender, attend1_obs, attend2_obs, attend3_obs, Y_obs)
+  colnames(sim.dat.obs) <- c("D", "Z", "Age", "Gender", "Attend1", "Attend2", "Attend3", "Y")
+  
+  return(sim.dat.obs)
+}
 
 
-##Create observed data
+##set # draws, initialize vector to store CACE estimates
+draws <- 1000
+CACE_ivreg_baseline <- numeric()
+CACE_ivreg_2 <- numeric()
+CACE_ivreg_3 <- numeric()
+CACE_ivreg_4 <- numeric()
 
-```{r}
+for(i in 1:draws){
+  sim.dat <- data_function1(50)
+  
+  ##baseline function
+  ivreg.baseline <- ivreg(Y ~ D | Z, data = sim.dat)
+  CACE_ivreg_baseline[length(CACE_ivreg_baseline)+1] <- ivreg.baseline$coefficients[2]
+  
+  ##fit 2
+  ivreg.fit2 <- ivreg(Y ~ D + Attend1 | Z, data = sim.dat)
+  CACE_ivreg_2[length(CACE_ivreg_2)+1] <- ivreg.fit2$coefficients[2]
+  
+  ##fit 3
+  ivreg.fit3 <- ivreg(Y ~ D + Attend2 | Z, data = sim.dat)
+  CACE_ivreg_3[length(CACE_ivreg_3)+1] <- ivreg.fit3$coefficients[2]
+  
+  ##fit 4
+  ivreg.fit4 <- ivreg(Y ~ D + Attend3 | Z, data = sim.dat)
+  CACE_ivreg_4[length(CACE_ivreg_4)+1] <- ivreg.fit4$coefficients[2]
+  
+}
 
-Y_obs <- ifelse(dat.full$Z== 1, dat.full$Y1, dat.full$Y0)
-D_obs <- ifelse(dat.full$Z== 1, dat.full$d_1, dat.full$d_0)
+baseline_CACE_std.dev <- sd(CACE_ivreg_baseline)
+baseline_CACE_std.dev
 
-attend1_obs <- ifelse(dat.full$Z== 1, dat.full$attend1_X1, dat.full$attend1_X0)
-attend2_obs <- ifelse(dat.full$Z == 1, dat.full$attend2_X1, dat.full$attend2_X0)
-attend3_obs <- ifelse(dat.full$Z == 1, dat.full$attend3_X1, dat.full$attend3_X0)
+baseline_mean_CACE <- mean(CACE_ivreg_baseline)
+baseline_mean_CACE
 
-##pull alll observed variables into the observed data frame
-dat.obs <- data.frame(dat.full$Z, compliance_type, D_obs, Y_obs, dat.full$gender, dat.full$age, attend1_obs, attend2_obs, attend3_obs)
+ivreg2_CACE_std.dev <- sd(CACE_ivreg_2)
+ivreg2_CACE_std.dev
 
-##rename columns
-colnames(dat.obs) <- c("Z", "Compliance", "D", "Y", "Gender", "Age", "Attend_1", "Attend_2", "Attend_3")
+ivreg2_mean_CACE <- mean(CACE_ivreg_2)
+ivreg2_mean_CACE
 
-##looking at correlation to compliance & to treatment
-kruskal.test(attend1_obs ~ Compliance, data = dat.obs)
-kruskal.test(attend2_obs ~ Compliance, data = dat.obs)
-kruskal.test(attend3_obs ~ Compliance, data = dat.obs)
+ivreg3_CACE_std.dev <- sd(CACE_ivreg_3)
+ivreg3_CACE_std.dev
 
-cor(dat.obs$Y, dat.obs$Attend_1)
-cor(dat.obs$Y, dat.obs$Attend_2)
-cor(dat.obs$Y, dat.obs$Attend_3)
+ivreg3_mean_CACE <- mean(CACE_ivreg_3)
+ivreg3_mean_CACE
 
-```
+ivreg4_CACE_std.dev <- sd(CACE_ivreg_4)
+ivreg4_CACE_std.dev
 
+ivreg4_mean_CACE <- mean(CACE_ivreg_4)
+ivreg4_mean_CACE
 
-```{r}
-
-naive_regression <- lm(Y ~ D, data = dat.obs)
-summary(naive_regression)
-
-naive_regression_w.predictors <- lm(Y ~ D + Age + as.factor(Gender), data = dat.obs)
-summary(naive_regression_w.predictors)
-
-naive_regression_w.attend_1 <- lm(Y ~ D + Age + as.factor(Gender) + as.factor(Attend_1), data = dat.obs)
-summary(naive_regression_w.attend_1)
-
-##In dat.obs, 14.84% are always-takers, 25.32% are compliers, and 59.84% are never-takers.-- check with slides
-
-compliance_regression <- lm(D ~ Z, data = dat.obs)
-
-summary(compliance_regression)
-
-1-(compliance_regression$coefficients[1]+compliance_regression$coefficients[2])
-
-```
-
-
-Intent to Treat Effect
-
-```{r}
-
-ITT <- mean(dat.obs$Y[dat.obs$Z == 1]) - mean(dat.obs$Y[dat.obs$Z ==0])
-ITT
-
-## Estimate the CACE by dividing the ITT estimate by the percent of compliers in the sample.
-
-CACE <- ITT/compliance_regression$coefficients[2]
-CACE
-
+end.time = Sys.time()
+total.time = end.time - start.time
 ```
 
 
 
+
+###Propensity Scores 
+
 ```{r}
 
+data_function2 <- function(x){
+  Y0 <- rnorm(x*.5, 80, 3.5)
+  Y1 <- rnorm(x*.5,89,3.5)
+
+  age <- rnorm(x,20,.5)
+  gender <- rbinom(x, size = 1, prob = .5)
+  
+  attend_z0 <- rep(0,x)
+
+  ##varying attendance for treated
+  ## % of attendance for skewed lower- students attend once or twice and dwindle off
+  attend1_Z1 <- rbeta(500,shape1 = 2, shape2 = 15)
+  ## % of attendance for treated varies between 0-10 
+  attend2_Z1 <- rbeta(500,shape1 = 2, shape2 = 2)
+  ## % attendance for treated skewed toward 10
+  attend3_Z1 <- rbeta(500,shape1 = 2, shape2 = .5)
+
+  Z <- rbinom(x, size = 1, prob = .5)
+
+  god.dat <- data.frame(Y0, Y1, age, gender, attend_Z0, attend1_Z1, attend2_Z1, attend3_Z1, Z)
+  
+  Y_obs <- ifelse(god.dat$Z== 1, god.dat$Y1, god.dat$Y0)
+  
+  attend1_obs <- ifelse(god.dat$Z== 1, god.dat$attend1_Z1, god.dat$attend_Z0)
+  attend2_obs <- ifelse(god.dat$Z== 1, god.dat$attend2_Z1, god.dat$attend_Z0)
+  attend3_obs <- ifelse(god.dat$Z== 1, god.dat$attend3_Z1, god.dat$attend_Z0)
+
+  sim.dat.obs <- data.frame(god.dat$Z, god.dat$age, god.dat$gender, attend1_obs, attend2_obs, attend3_obs, Y_obs)
+  colnames(sim.dat.obs) <- c("Z", "Age", "Gender", "Attend1", "Attend2", "Attend3", "Y")
+  
+  return(sim.dat.obs)
+}
+
+matchit_baseline_weights <- numeric()
+matchit_fit2_weights <- numeric()
+matchit_fit3_weights <- numeric()
+matchit_fit4_weights <- numeric()
+
+for(i in 1:draws){
+  sim.dat <- data_function1(x)
+  
+  ##baseline function
+  matchit_baseline <- matchit(Z ~ Age + Gender, distance = "nearest", dat = sim.dat)
+  ##save weights 
+  matchit_baseline_weights <- matchit_baseline$weights
+  
+  ##fit 2
+  matchit_fit2 <- matchit(Z ~ Age + Gender + Attend1, distance = "nearest", dat = sim.dat)
+  
+  ##fit 3
+  matchit_fit3 <- matchit(Z ~ Age + Gender + Attend2, distance = "nearest", dat = sim.dat)
+  
+  ##fit 4
+  matchit_fit4 <- matchit(Z ~ Age + Gender + Attend3, distance = "mahalonobis", dat = sim.dat)
+  
+}
 
 
 
 ```
-
-
-
