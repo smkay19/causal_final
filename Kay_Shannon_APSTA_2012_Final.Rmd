@@ -9,35 +9,39 @@ output: html_document
 library(MatchIt)
 library(twang)
 library(tidyverse)
-
 ```
 
-##DGP for Instrumental Variables
+##Generate Data for Instrumental Variables
 ```{r}
 set.seed(2012)
 
 data_function1 <- function(x){
+  ##compliance and treatment condition
   c <- rep(c("c", "n", "a"), x*c(.5,.3,.2))
   d_0 <- rep(c(0,0,1), x*c(.5, .3, .2))
   d_1 <- rep(c(1,0,1), x*c(.5, .3, .2))
   
   dat<- data.frame(d_0, d_1, c)
-
+  
+  ##untreated outcome for each group
   comp_Y0 <- rnorm(x*.5, 80, 3.5)
   nev.taker_Y0 <- rnorm(x*.3,75,7)
   always_Y0 <- rnorm(x*.2,87,3.5)
 
   Y0 <- c(comp_Y0, nev.taker_Y0, always_Y0)
-
+  
+  ##treated outcome for each group
   comp_Y1 <- rnorm(x*.5,89,3.5)
   nev.taker_Y1 <- rnorm(x*.3,75,7)
   always_Y1 <- rnorm(x*.2,87,3.5)
 
   Y1 <- c(comp_Y1, nev.taker_Y1, always_Y1)
   
+  ##covariates
   age <- rnorm(x,20,.5)
   gender <- rbinom(x, size = 1, prob = .5)
   
+  ##attendance variable for each group if untreated
   comp_attend_Z0 <- rep(0,.5*x)
   nev.taker_attend <- rep(0,.3*x)
   always_attend <- rep(1,.2*x)
@@ -45,27 +49,31 @@ data_function1 <- function(x){
   ##varying attendance for compliers
   ## % of attendance for compliers skewed lower- students attend once or twice and dwindle off
   comp_attend1_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = 15)
-  ## % of attendance for compliers  
+  ## % of attendance for compliers- symmetrical distribution across potential outcomes
   comp_attend2_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = 2)
-  ## % attendance for compliers 
+  ## % attendance for compliers skewed towards high attendance
   comp_attend3_Z1 <- rbeta(.5*x,shape1 = 2, shape2 = .5)
-
+  
+  ##combine
   attend_Z0 <- c(comp_attend_Z0, nev.taker_attend, always_attend)
   attend1_Z1 <- c(comp_attend1_Z1, nev.taker_attend, always_attend)
   attend2_Z1 <- c(comp_attend2_Z1, nev.taker_attend, always_attend)
   attend3_Z1 <- c(comp_attend3_Z1, nev.taker_attend, always_attend)
   
+  ##generate instrument assignment
   Z <- rbinom(x, size = 1, prob = .5)
-
+  
+  ##Assemble god data where we can see all potential outcomes 
   god.dat <- data.frame(d_0, d_1, c, Y0, Y1, age, gender, attend_Z0, attend1_Z1, attend2_Z1, attend3_Z1, Z)
   
+  ##generate observed data based on instrument assignment
   Y_obs <- ifelse(god.dat$Z== 1, god.dat$Y1, god.dat$Y0)
   D_obs <- ifelse(god.dat$Z == 1, god.dat$d_1, god.dat$d_0)
   
   attend1_obs <- ifelse(god.dat$Z== 1, god.dat$attend1_Z1, god.dat$attend_Z0)
   attend2_obs <- ifelse(god.dat$Z== 1, god.dat$attend2_Z1, god.dat$attend_Z0)
   attend3_obs <- ifelse(god.dat$Z== 1, god.dat$attend3_Z1, god.dat$attend_Z0)
-
+  
   sim.dat.obs <- data.frame(D_obs, god.dat$Z, god.dat$age, god.dat$gender, attend1_obs, attend2_obs, attend3_obs, Y_obs)
   colnames(sim.dat.obs) <- c("D", "Z", "Age", "Gender", "Attend1", "Attend2", "Attend3", "Y")
   
@@ -75,7 +83,7 @@ data_function1 <- function(x){
 ```
 
 
-##2SLS
+##Two Stage Least Squares Simulation
 ```{r}
 
 ##set # draws, initialize vector to store TSLS estimates
@@ -138,16 +146,19 @@ box()
 
 ```
 
-###DGP for Propensity Scores
+###Generate Data for Propensity Scores
 ```{r}
 
 data_function2 <- function(x){
+  ##generate each possible outcome
   Y0 <- rnorm(x*.5, 80, 3.5)
   Y1 <- rnorm(x*.5,89,3.5)
-
+  
+  ##covariates
   age <- rnorm(x,20,.5)
   gender <- rbinom(x, size = 1, prob = .5)
   
+  ##generate attendance if untreated
   attend_Z0 <- rep(0,x)
 
   ##varying attendance for treated
@@ -157,11 +168,14 @@ data_function2 <- function(x){
   attend2_Z1 <- rbeta(500,shape1 = 2, shape2 = 2)
   ## % attendance for treated skewed toward 10
   attend3_Z1 <- rbeta(500,shape1 = 2, shape2 = .5)
-
+  
+  ##randomly assign treatment
   Z <- rbinom(x, size = 1, prob = .5)
 
+  ##create god data where all potential outcomes are visible
   god.dat <- data.frame(Y0, Y1, age, gender, attend_Z0, attend1_Z1, attend2_Z1, attend3_Z1, Z)
   
+  ##create observed data based on treatment assignment
   Y_obs <- ifelse(god.dat$Z== 1, god.dat$Y1, god.dat$Y0)
   
   attend1_obs <- ifelse(god.dat$Z== 1, god.dat$attend1_Z1, god.dat$attend_Z0)
@@ -254,7 +268,7 @@ legend("topleft", legend = c("Baseline", "Fit 2", "Fit 3", "Fit 4"), col = c(rgb
 ##Propensity Scores-- ps
 ##default does ATE
 ```{r}
-##set # draws, initialize vector to store TSLS estimates
+##set # draws, initialize vector to store PS estimates
 s <- 1000
 ps_baseline_estimate <- numeric()
 ps_fit2_estimate <- numeric()

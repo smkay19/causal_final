@@ -344,3 +344,43 @@ box()
 ```
 
 
+##Balance function for propensity scores 
+
+```{r}
+
+balance <- function(data, covs, weights){
+  balance_mat <- matrix(NA,length(covs), 8)
+  names <- c("mn1","mn0","mn1.m","mn0.m","diff","diff.m","ratio","ratio.m") 
+  weights <- weights[which(data$treat == 0)]
+
+for(i in 1:(length(covs))){
+  balance_mat[i,1] <- mean(data[data$treat == 1, covs[i]])
+  balance_mat[i,2] <- mean(data[data$treat == 0, covs[i]])
+  balance_mat[i,3] <- mean(data[data$treat == 1, covs[i]])
+  balance_mat[i,4] <- sum((data[data$treat == 0, covs[i]]) * weights) / sum(weights)
+  
+  if(length(unique(data[,covs[i]])) == 2) {
+  balance_mat[i,5] <- balance_mat[i,1] - balance_mat[i,2] 
+  balance_mat[i,6] <- balance_mat[i,3] - balance_mat[i,4]
+  balance_mat[i,7] <- 0
+  balance_mat[i,8] <- 0
+} else{
+  balance_mat[i, 5] <- (balance_mat[i, 1]- balance_mat[i, 2]) / sd(data[data$treat == 1, covs[i]])
+  balance_mat[i, 6] <- (balance_mat[i, 3]- balance_mat[i, 4]) / sd(data[data$treat == 1, covs[i]])
+  
+  balance_mat[i, 7] <-sd(data[data$treat == 0, covs[i]]) / sd(data[data$treat == 1, covs[i]])
+  balance_mat[i, 8] <- sqrt(wtd.var(data[, covs[i]][data[, "treat"] == 0], weights)) / sd(dataframe[, covariates[i]][dataframe[,"treat"] == 1])
+    }
+  }
+  rownames(checks) <- covariates
+  colnames(checks) <- col.name
+  return(checks)
+}
+
+covs1 <- c("Age", "Gender")
+covs2 <- c("Age", "Gender", "Attend1")
+covs3 <- c("Age", "Gender", "Attend2")
+covs4 <- c("Age", "Gender", "Attend3")
+
+```
+
