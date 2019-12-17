@@ -8,12 +8,12 @@ output: html_document
 ```{r}
 library(MatchIt)
 library(twang)
-
+library(tidyverse)
 
 ```
 
+##DGP for Instrumental Variables
 ```{r}
-start.time = Sys.time()
 set.seed(2012)
 
 data_function1 <- function(x){
@@ -72,68 +72,73 @@ data_function1 <- function(x){
   return(sim.dat.obs)
 }
 
-
-##set # draws, initialize vector to store CACE estimates
-draws <- 1000
-CACE_ivreg_baseline <- numeric()
-CACE_ivreg_2 <- numeric()
-CACE_ivreg_3 <- numeric()
-CACE_ivreg_4 <- numeric()
-
-for(i in 1:draws){
-  sim.dat <- data_function1(50)
-  
-  ##baseline function
-  ivreg.baseline <- ivreg(Y ~ D | Z, data = sim.dat)
-  CACE_ivreg_baseline[length(CACE_ivreg_baseline)+1] <- ivreg.baseline$coefficients[2]
-  
-  ##fit 2
-  ivreg.fit2 <- ivreg(Y ~ D + Attend1 | Z, data = sim.dat)
-  CACE_ivreg_2[length(CACE_ivreg_2)+1] <- ivreg.fit2$coefficients[2]
-  
-  ##fit 3
-  ivreg.fit3 <- ivreg(Y ~ D + Attend2 | Z, data = sim.dat)
-  CACE_ivreg_3[length(CACE_ivreg_3)+1] <- ivreg.fit3$coefficients[2]
-  
-  ##fit 4
-  ivreg.fit4 <- ivreg(Y ~ D + Attend3 | Z, data = sim.dat)
-  CACE_ivreg_4[length(CACE_ivreg_4)+1] <- ivreg.fit4$coefficients[2]
-  
-}
-
-baseline_CACE_std.dev <- sd(CACE_ivreg_baseline)
-baseline_CACE_std.dev
-
-baseline_mean_CACE <- mean(CACE_ivreg_baseline)
-baseline_mean_CACE
-
-ivreg2_CACE_std.dev <- sd(CACE_ivreg_2)
-ivreg2_CACE_std.dev
-
-ivreg2_mean_CACE <- mean(CACE_ivreg_2)
-ivreg2_mean_CACE
-
-ivreg3_CACE_std.dev <- sd(CACE_ivreg_3)
-ivreg3_CACE_std.dev
-
-ivreg3_mean_CACE <- mean(CACE_ivreg_3)
-ivreg3_mean_CACE
-
-ivreg4_CACE_std.dev <- sd(CACE_ivreg_4)
-ivreg4_CACE_std.dev
-
-ivreg4_mean_CACE <- mean(CACE_ivreg_4)
-ivreg4_mean_CACE
-
-end.time = Sys.time()
-total.time = end.time - start.time
 ```
 
 
+##2SLS
+```{r}
 
+##set # draws, initialize vector to store TSLS estimates
+draws <- 1000
+TSLS_baseline_estimate <- numeric()
+TSLS_fit2_estimate <- numeric()
+TSLS_fit3_estimate <- numeric()
+TSLS_fit4_estimate <- numeric()
 
-###Propensity Scores-- Matchit
+##simulate 1000 iterations of two stage least squares models & store each model's estimate for each iteration
+for(i in 1:draws){
+  sim.dat <- data_function1(draws)
+  
+  ##step 1 =  regress treatment on instrument- use this in all models
+  TSLS.treatment_estimate <- lm(D ~ Z, data = sim.dat)
+  treatment_estimate <- TSLS.treatment_estimate$fitted.values
+  
+  ##step 2 =  regress outcome onto the fitted treatment values from step 1
+  ##baseline function
+  TSLS.baseline_fit <- lm(Y ~ treatment_estimate + Age + Gender, data = sim.dat)
+  TSLS_baseline_estimate[length(TSLS_baseline_estimate)+1] <- TSLS.baseline_fit$coefficients[2]
 
+  ##step 2 =  regress outcome onto the fitted treatment values from step 1
+  ##fit 2
+  TSLS.fit2 <- lm(Y ~ treatment_estimate + Age + Gender + Attend1, data = sim.dat)
+  TSLS_fit2_estimate[length(TSLS_fit2_estimate)+1] <- TSLS.fit2$coefficients[2]
+
+  ##fit3
+  TSLS.fit3 <- lm(Y ~ treatment_estimate + Age + Gender + Attend2, data = sim.dat)
+  TSLS_fit3_estimate[length(TSLS_fit3_estimate)+1] <- TSLS.fit3$coefficients[2]
+  
+  ##
+  TSLS.fit4 <- lm(Y ~ treatment_estimate + Age + Gender + Attend3, data = sim.dat)
+  TSLS_fit4_estimate[length(TSLS_fit4_estimate)+1] <- TSLS.fit4$coefficients[2]
+  
+}
+
+##Calculate the mean and standard deviation of each distribution
+mean(TSLS_baseline_estimate)
+mean(TSLS_fit2_estimate)
+mean(TSLS_fit3_estimate)
+mean(TSLS_fit4_estimate)
+
+sd(TSLS_baseline_estimate)
+sd(TSLS_fit2_estimate)
+sd(TSLS_fit3_estimate)
+sd(TSLS_fit4_estimate)
+
+```
+
+```{r}
+
+##Plot the an overlapping histogram with the distribution of each model's estimates
+hist(TSLS_baseline_estimate,xlim=c(-2,12), ylim=c(0,150), col=rgb(0.1,0.1,0.1,0.2), main= "Figure 1: Bias In TSLS", xlab="CACE", breaks = 25)
+hist(TSLS_fit2_estimate, col=rgb(0.1,0.1,0.8,0.3), add=T, breaks = 25)
+hist(TSLS_fit3_estimate, col=rgb(0.1,0.8,0.1,0.3), add=T, breaks = 25)
+hist(TSLS_fit4_estimate, col=rgb(0.8,0.1,0.1,0.3), add=T, breaks = 25) +
+legend("topleft", legend = c("Baseline", "Fit 2", "Fit 3", "Fit 4"), col = c(rgb(0.1,0.1,0.1,0.2), rgb(0.1,0.1,0.8,0.3), rgb(0.1,0.8,0.1,0.3), rgb(0.8,0.1,0.1,0.3)), bty = "n", pch = c(15,15,15,15))
+box()
+
+```
+
+###DGP for Propensity Scores
 ```{r}
 
 data_function2 <- function(x){
@@ -169,96 +174,152 @@ data_function2 <- function(x){
   return(sim.dat.obs)
 }
 
+```
+
+
+##MatchIt Models
+```{r}
+
+##set # draws, initialize vector to store matchit estimates
 matchit_baseline_estimate <- numeric()
 matchit_fit2_estimate <- numeric()
 matchit_fit3_estimate <- numeric()
 matchit_fit4_estimate <- numeric()
 
+###simulate 1000 iterations of two stage least squares models & store each model's estimate for each iteration
 x <- 1000
 for(i in 1:x){
   sim.dat <- data_function2(x)
-  
+
   ##baseline function
-  matchit_baseline <- matchit(Z ~ Age + Gender, method = "nearest", distance = "linear.logit", replace = TRUE, data = sim.dat)
+  matchit_baseline <- matchit(Z ~ Age + Gender, method = "nearest", distance = "logit", replace = TRUE, data = sim.dat)
   ##save weights 
   matchit_baseline_weights <- matchit_baseline$weights
   matchit.reg_baseline <- lm(Y ~ Z + Age + Gender, weights = matchit_baseline_weights, data = sim.dat)
   matchit_baseline_estimate[length(matchit_baseline_estimate)+1] <- matchit.reg_baseline$coefficients[2]
   
   ##fit 2
-  matchit_fit2 <- matchit(Z ~ Age + Gender + Attend1, method = "nearest", distance = "linear.logit", replace = TRUE, data = sim.dat)
+  matchit_fit2 <- matchit(Z ~ Age + Gender + Attend1, method = "nearest", distance = "logit", replace = TRUE, data = sim.dat)
   matchit_fit2_weights <- matchit_fit2$weights
   matchit.reg_fit2 <- lm(Y ~ Z + Age + Gender + Attend1, weights = matchit_fit2_weights, data = sim.dat)
   matchit_fit2_estimate[length(matchit_fit2_estimate)+1] <- matchit.reg_fit2$coefficients[2]
   
   ##fit 3
-  matchit_fit3 <- matchit(Z ~ Age + Gender + Attend2, method = "nearest", distance = "linear.logit", replace = TRUE, dat = sim.dat)
+  matchit_fit3 <- matchit(Z ~ Age + Gender + Attend2, method = "nearest", distance = "logit", replace = TRUE, dat = sim.dat)
   matchit_fit3_weights <- matchit_fit3$weights
   matchit.reg_fit3 <- lm(Y ~ Z + Age + Gender + Attend2, weights = matchit_fit3_weights, data = sim.dat)
   matchit_fit3_estimate[length(matchit_fit3_estimate)+1] <- matchit.reg_fit3$coefficients[2] 
   
   ##fit 4
-  matchit_fit4 <- matchit(Z ~ Age + Gender + Attend3, method = "nearest", distance = "linear.logit", replace = TRUE, dat = sim.dat)
+  matchit_fit4 <- matchit(Z ~ Age + Gender + Attend3, method = "nearest", distance = "logit", replace = TRUE, dat = sim.dat)
   matchit_fit4_weights <- matchit_fit4$weights
   matchit.reg_fit4 <- lm(Y ~ Z + Age + Gender + Attend2, weights = matchit_fit4_weights, data = sim.dat)
   matchit_fit4_estimate[length(matchit_fit4_estimate)+1] <- matchit.reg_fit4$coefficients[2]
   
 }
 
-##regressions don't converge but including the different attend variables does increase bias of estimate
+##compute the mean and standard deviation of each distribution
 mean(matchit_baseline_estimate)
 mean(matchit_fit2_estimate)
 mean(matchit_fit3_estimate)
 mean(matchit_fit4_estimate)
 
+sd(matchit_baseline_estimate)
+sd(matchit_fit2_estimate)
+sd(matchit_fit3_estimate)
+sd(matchit_fit4_estimate)
+
+##Look at balance tables for different matchit models-- matchit is unable to reduce the difference on the posttreatment variables
+summary(matchit_baseline)
+summary(matchit_fit2)
+summary(matchit_fit3)
+summary(matchit_fit4)
+
+```
+
+##MatchIt- Bias Plot
+##Matchit default = ATT
+```{r}
+##Plot the an overlapping histogram with the distribution of each model's estimates
+hist(matchit_baseline_estimate,xlim=c(0,18), ylim=c(0,150), col=rgb(0.1,0.1,0.1,0.2), main= "Figure 2: Bias In MatchIt Estimates", xlab="ATT", breaks = 25)
+hist(matchit_fit2_estimate, col=rgb(0.1,0.1,0.8,0.3), add=T, breaks = 25)
+hist(matchit_fit3_estimate, col=rgb(0.1,0.8,0.1,0.3), add=T, breaks = 25)
+hist(matchit_fit4_estimate, col=rgb(0.8,0.1,0.1,0.3), add=T, breaks = 25) +
+legend("topleft", legend = c("Baseline", "Fit 2", "Fit 3", "Fit 4"), col = c(rgb(0.1,0.1,0.1,0.2), rgb(0.1,0.1,0.8,0.3), rgb(0.1,0.8,0.1,0.3), rgb(0.8,0.1,0.1,0.3)), bty = "n", pch = c(15,15,15,15))
+
+
 ```
 
 
-##Propensity Scores-- 
-
+##Propensity Scores-- ps
+##default does ATE
 ```{r}
+##set # draws, initialize vector to store TSLS estimates
+s <- 1000
 ps_baseline_estimate <- numeric()
 ps_fit2_estimate <- numeric()
 ps_fit3_estimate <- numeric()
 ps_fit4_estimate <- numeric()
 
-s <- 10
+###simulate 1000 iterations of two stage least squares models & store each model's estimate for each iteration
 for(i in 1:s){
   sim.dat <- data_function2(s)
   
   ##baseline function
-  ps_baseline <- ps(Z ~ Age + Gender, stop.method = "es.mean", data = sim.dat)
+  ps_baseline <- ps(Z ~ Age + Gender, stop.method = "es.mean", n.trees = 500, estimand = "ATT", data = sim.dat)
   ##save weights 
-  ps_baseline_weights <- ps_baseline$weights
+  ps_baseline_weights <- get.weights(ps_baseline, stop.method = "es.mean")
   ps.reg_baseline <- lm(Y ~ Z + Age + Gender, weights = ps_baseline_weights, data = sim.dat)
   ps_baseline_estimate[length(ps_baseline_estimate)+1] <- ps.reg_baseline$coefficients[2]
   
   ##fit 2
-  ps_fit2 <- ps(Z ~ Age + Gender + Attend1, stop.method = "es.mean", data = sim.dat)
-  ps_fit2_weights <- ps_fit2$weights
+  ps_fit2 <- ps(Z ~ Age + Gender + Attend1, stop.method = "es.mean", n.trees = 500, estimand = "ATT", data = sim.dat)
+  ps_fit2_weights <- get.weights(ps_fit2, stop.method = "es.mean")
   ps.reg_fit2 <- lm(Y ~ Z + Age + Gender + Attend1, weights = ps_fit2_weights, data = sim.dat)
   ps_fit2_estimate[length(ps_fit2_estimate)+1] <- ps.reg_fit2$coefficients[2]
   
   ##fit 3
-  ps_fit3 <- matchit(Z ~ Age + Gender + Attend2, stop.method = "es.mean", data = sim.dat)
-  ps_fit3_weights <- ps_fit3$weights
+  ps_fit3 <- ps(Z ~ Age + Gender + Attend2, stop.method = "es.mean", n.trees = 500, estimand = "ATT", data = sim.dat)
+  ps_fit3_weights <- get.weights(ps_fit3, stop.method = "es.mean")
   ps.reg_fit3 <- lm(Y ~ Z + Age + Gender + Attend2, weights = ps_fit3_weights, data = sim.dat)
   ps_fit3_estimate[length(ps_fit3_estimate)+1] <- ps.reg_fit3$coefficients[2] 
   
   ##fit 4
-  ps_fit4 <- ps(Z ~ Age + Gender + Attend3, stop.method = "es.mean", dat = sim.dat)
-  ps_fit4_weights <- ps_fit4$weights
+  ps_fit4 <- ps(Z ~ Age + Gender + Attend3, stop.method = "es.mean", n.trees = 500, estimand = "ATT", dat = sim.dat)
+  ps_fit4_weights <- get.weights(ps_fit4, stop.method = "es.mean")
   ps.reg_fit4 <- lm(Y ~ Z + Age + Gender + Attend2, weights = ps_fit4_weights, data = sim.dat)
   ps_fit4_estimate[length(ps_fit4_estimate)+1] <- ps.reg_fit4$coefficients[2]
   
+  print(i)
 }
 
-mean(ps_baseline_estimate)
-mean(ps_fit2_estimate)
-mean(ps_fit3_estimate)
-mean(ps_fit4_estimate)
+##Calculate the mean and standard deviation of each distribution
+mean(ps_baseline_estimate, na.rm = TRUE)
+mean(ps_fit2_estimate, na.rm = TRUE)
+mean(ps_fit3_estimate, na.rm = TRUE)
+mean(ps_fit4_estimate, na.rm = TRUE)
+
+sd(ps_baseline_estimate, na.rm = TRUE)
+sd(ps_fit2_estimate, na.rm = TRUE)
+sd(ps_fit3_estimate, na.rm = TRUE)
+sd(ps_fit4_estimate, na.rm = TRUE)
+
+##check balance 
+##bal.stat(data = sim.dat, vars = c("Age", "Gender", "Attend3"), treat.var = "Z", w.all = ps_fit4_weights)
 
 ```
 
+
+##PS Bias Plot
+```{r}
+##Plot the an overlapping histogram with the distribution of each model's estimates
+hist(ps_baseline_estimate,xlim=c(7,11), ylim=c(0,115), col=rgb(0.1,0.1,0.1,0.2), main= "Figure 3: Bias In Logistic Regression Tree Propensity Score Estimates", xlab="ATT", breaks = 25)
+hist(ps_fit2_estimate, col=rgb(0.1,0.1,0.8,0.3), add=T, breaks = 25)
+hist(ps_fit3_estimate, col=rgb(0.1,0.8,0.1,0.3), add=T, breaks = 25)
+hist(ps_fit4_estimate, col=rgb(0.8,0.1,0.1,0.3), add=T, breaks = 25) +
+legend("topleft", legend = c("Baseline", "Fit 2", "Fit 3", "Fit 4"), col = c(rgb(0.1,0.1,0.1,0.2), rgb(0.1,0.1,0.8,0.3), rgb(0.1,0.8,0.1,0.3), rgb(0.8,0.1,0.1,0.3)), bty = "n", pch = c(15,15,15,15))
+
+
+```
 
 

@@ -293,3 +293,54 @@ mean_CACE_sim <- mean(CACE_ivreg_sim)
 mean_CACE_sim
 
 ```
+
+##IVREG- decided to scrap
+
+```{r}
+
+##set # draws, initialize vector to store CACE estimates
+draws <- 1000
+CACE_ivreg_baseline <- numeric()
+CACE_ivreg_2 <- numeric()
+CACE_ivreg_3 <- numeric()
+CACE_ivreg_4 <- numeric()
+
+for(i in 1:draws){
+  sim.dat <- data_function1(50)
+  
+  ##baseline function
+  ivreg.baseline <- ivreg(Y ~ D + Age + Gender | Z, data = sim.dat)
+  CACE_ivreg_baseline[length(CACE_ivreg_baseline)+1] <- ivreg.baseline$coefficients[2]
+  
+  ##fit 2
+  ivreg.fit2 <- ivreg(Y ~ D + Age + Gender + Attend1 | Z, data = sim.dat)
+  CACE_ivreg_2[length(CACE_ivreg_2)+1] <- ivreg.fit2$coefficients[2]
+  
+  ##fit 3
+  ivreg.fit3 <- ivreg(Y ~ D + Age + Gender + Attend2 | Z, data = sim.dat)
+  CACE_ivreg_3[length(CACE_ivreg_3)+1] <- ivreg.fit3$coefficients[2]
+  
+  ##fit 4
+  ivreg.fit4 <- ivreg(Y ~ D + Age + Gender + Attend3 | Z, data = sim.dat)
+  CACE_ivreg_4[length(CACE_ivreg_4)+1] <- ivreg.fit4$coefficients[2]
+  
+}
+
+end.time = Sys.time()
+total.time = end.time - start.time
+```
+
+```{r}
+hist(CACE_ivreg_baseline, col=rgb(1,0,0,0.5),xlim=c(-10,18), ylim=c(0,200), main= "Bias In IVReg Estimates", 
+     xlab="Variable", breaks = 25)
+
+hist(CACE_ivreg_2, col=rgb(0,0,1,0.5), breaks = 25 ,xlim=c(-10,18), ylim=c(0,200))
+
+hist(CACE_ivreg_3, col = rgb(0,0,1,0.5), breaks = 25)
+hist(CACE_ivreg_4, col = rgb(0,0,1,0.5), breaks = 25)
+box()
+
+
+```
+
+
